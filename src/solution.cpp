@@ -4,9 +4,6 @@
 #include "../include/solution_log.h"
 #include "../include/util.h"
 
-using namespace StringUtil;
-using namespace VectorUtil;
-
 void Solution::set_essential(const std::vector<std::string>& essential) {
     essential_pi = essential;
 }
@@ -47,14 +44,14 @@ void Solution::simplify(MinimizedTerms& minimized_terms, MintermCollection& mint
 
     if(!minterms.empty()) {
         for(auto item : binary_minterms) {
-            if(common_terms(item.terms, minterms)) {
+            if(VectorUtil::common_terms(item.terms, minterms)) {
                 essential_pi.push_back(item.binary);
-                rm_vector(minterms, item.terms);
+                VectorUtil::rm_vector(minterms, item.terms);
             }
         }
     }
 
-    rm_string_dup(essential_pi);
+    StringUtil::rm_string_dup(essential_pi);
 }
 
 std::vector<int> Solution::find_prime_terms(std::vector<int> history_terms) {
@@ -84,7 +81,7 @@ std::vector<int> Solution::find_history_terms(std::vector<BinaryMinterm>& histor
         history_terms.insert(history_terms.end(), item.terms.begin(), item.terms.end());
     }
 
-    rm_vector(history_terms, found_terms);
+    VectorUtil::rm_vector(history_terms, found_terms);
 
     return history_terms;
 }
@@ -98,18 +95,18 @@ void Solution::process_prime_terms(
     std::vector<int>& history_terms
 ) {
     for(const auto& item : history) {
-        if(common_terms(item.terms, prime_terms)) {
+        if(VectorUtil::common_terms(item.terms, prime_terms)) {
             essential_pi.push_back(item.binary);
             found_binary.insert(item.binary);
             found_terms.insert(found_terms.end(), item.terms.begin(), item.terms.end());
-            rm_vector(minterms, item.terms);
+            VectorUtil::rm_vector(minterms, item.terms);
         }
 
         if(prime_terms.empty()) {
             break;
         }
     }
-    rm_vector(history_terms, found_terms);
+    VectorUtil::rm_vector(history_terms, found_terms);
 }
 
 void Solution::process_non_prime_terms(
@@ -119,14 +116,14 @@ void Solution::process_non_prime_terms(
     std::unordered_set<std::string>& found_binary
 ) {
     while(!history_terms.empty()) {
-        int max_terms = max_common_terms(history_terms, history);
+        int max_terms = VectorUtil::max_common_terms(history_terms, history);
 
         for(auto item : history) {
-            if(common_terms(item.terms, history_terms) != max_terms) {
+            if(VectorUtil::common_terms(item.terms, history_terms) != max_terms) {
                 continue;
             }
             std::vector<BinaryMinterm> temp_v = gather_matching_terms(item, history, max_terms, found_binary);
-            max_terms = max_common_terms(history_terms, history);
+            max_terms = VectorUtil::max_common_terms(history_terms, history);
 
             std::vector<std::string> non_essential = extract_binary(temp_v, found_binary, minterms);
 
@@ -137,7 +134,7 @@ void Solution::process_non_prime_terms(
                 non_essential_pi.push_back(non_essential);;
             }
 
-            rm_vector(history_terms, item.terms);
+            VectorUtil::rm_vector(history_terms, item.terms);
         }
     }
 }
@@ -152,7 +149,7 @@ std::vector<BinaryMinterm> Solution::gather_matching_terms(
     temp_v.push_back(item);
 
     for(auto item_2 : history) {
-        if(common_terms(item_2.terms, item.terms) == max_terms && item_2.binary != item.binary) {
+        if(VectorUtil::common_terms(item_2.terms, item.terms) == max_terms && item_2.binary != item.binary) {
             if(found_binary.find(item_2.binary) == found_binary.end()) {
                 temp_v.push_back(item_2);
             }
@@ -171,7 +168,7 @@ std::vector<std::string> Solution::extract_binary(
     for(BinaryMinterm& term : temp_v) {
         non_essential.push_back(term.binary);
         found_binary.insert(term.binary);
-        rm_vector(minterms, term.terms);
+        VectorUtil::rm_vector(minterms, term.terms);
     }
     return non_essential;
 }
