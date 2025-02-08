@@ -14,8 +14,6 @@ private:
     void extract_essential_prime(std::vector<BinaryMinterm>& history, std::vector<int>& minterms);
     void populate_non_essential(std::vector<BinaryMinterm>& history, std::vector<int>& minterms);
     bool row_dominance(std::vector<BinaryMinterm>& history, std::vector<int>& minterms);
-    std::vector<int> find_essential_terms(std::vector<int>& history_terms);
-    std::vector<int> combine_history_terms(const std::vector<BinaryMinterm>& history);
 public:
     Solution(std::vector<BinaryMinterm>& history,  std::vector<int>& minterms);
     void print();
