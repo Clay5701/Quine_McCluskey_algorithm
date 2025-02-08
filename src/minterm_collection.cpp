@@ -1,3 +1,14 @@
+/**
+ * @brief Implements the MintermCollection class, which manages user-inputted minterms
+ *        and converts them to binary representations.
+ *
+ * The `MintermCollection` class stores user-entered minterms in a vector and processes 
+ * them into binary representations. It provides methods for input, conversion, retrieval, 
+ * and formatted output of minterms.
+ *
+ * @see minterm_collection.h for class definitions.
+ */
+
 #include <iostream>
 #include <sstream>
 #include <algorithm>
@@ -64,6 +75,21 @@ void MintermCollection::decimal_to_binary_conv() {
     std::sort(binary_minterms.begin(), binary_minterms.end(), [](const BinaryMinterm& a, const BinaryMinterm& b) {
         return a.group < b.group;
     });
+
+    calculate_cost(binary_minterms, max_len);
+}
+
+void MintermCollection::calculate_cost(std::vector<BinaryMinterm>& binary_minterms, int max_length) {
+    for(auto& term : binary_minterms) {
+        int dash_count = 0;
+        int zero_count = 0;
+        for(char ch : term.binary) {
+            if(ch == '-') dash_count++;
+            if(ch == '0') zero_count++;
+        }
+        term.dash_count = dash_count;
+        term.cost = 2*max_length + 1 + zero_count - dash_count;
+    }
 }
 
 std::vector<BinaryMinterm> MintermCollection::get_binary_minterms() {

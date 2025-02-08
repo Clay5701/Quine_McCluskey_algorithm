@@ -3,176 +3,108 @@
 #include "../include/solution.h"
 #include "../include/solution_log.h"
 #include "../include/util.h"
+#include "../include/minterm_intersection.h"
 
-void Solution::set_essential(const std::vector<std::string>& essential) {
-    essential_pi = essential;
-}
-void Solution::append_non_essential(std::vector<std::string>& terms) {
-    non_essential_pi.push_back(terms);
-}
-void Solution::print() {
-    SolutionLog::solution_log(essential_pi, non_essential_pi);
+Solution::Solution(std::vector<BinaryMinterm>& history,  std::vector<int>& minterms) {
+    process_history(history, minterms);
 }
 
-void Solution::simplify(MinimizedTerms& minimized_terms, MintermCollection& minterm_collection) {
-    auto history = minimized_terms.get_history();
-    std::vector<BinaryMinterm> binary_minterms = minterm_collection.get_binary_minterms();
-    std::vector<int> minterms = minterm_collection.get_minterms();
+void Solution::process_history(std::vector<BinaryMinterm>& history, std::vector<int>& minterms) {
+    while(true) {
+        extract_essential_prime(history, minterms);
 
-    std::vector<int> found_terms;
-    std::unordered_set<std::string> found_binary;
-    int history_idx = 0;
-
-    if(history.empty()) {
-        for(auto item : binary_minterms) {
-            essential_pi.push_back(item.binary);
-        }
-        return;
+        bool check = row_dominance(history, minterms);
+        if(!check) break;
     }
 
-    while(!minterms.empty() && history_idx != history.size()) {
-        std::vector<int> history_terms = find_history_terms(*history[history_idx], found_terms);
-
-        std::vector<int> prime_terms = find_prime_terms(history_terms);
-
-        process_prime_terms(*history[history_idx], prime_terms, found_binary, minterms, found_terms, history_terms);
-
-        process_non_prime_terms(*history[history_idx], history_terms, minterms, found_binary);
-
-        history_idx++;
-    }
+    extract_essential_prime(history, minterms);
 
     if(!minterms.empty()) {
-        for(auto item : binary_minterms) {
-            if(VectorUtil::common_terms(item.terms, minterms)) {
-                essential_pi.push_back(item.binary);
-                VectorUtil::rm_vector(minterms, item.terms);
+        populate_non_essential(history, minterms);
+    }
+}
+
+void Solution::extract_essential_prime(std::vector<BinaryMinterm>& history, std::vector<int>& minterms) {
+    std::vector<MintermIntersect> intersect_vector;
+
+    for(auto& term : history) {
+        MintermIntersect new_intersect(term, minterms);
+        intersect_vector.push_back(new_intersect);
+    }
+
+    std::vector<int> found_terms;
+    for(int x : minterms) {
+        if(std::find(found_terms.begin(), found_terms.end(), x) != found_terms.end()) {
+            continue;
+        }
+
+        int terms_found = 0;
+        int idx = 0;
+        for(int i = 0; i < intersect_vector.size(); i++) {
+            std::vector<int> temp_v = intersect_vector[i].intersection;
+            if(std::find(temp_v.begin(), temp_v.end(), x) != temp_v.end()) {
+                terms_found++;
+                idx = i;
             }
         }
+        if(terms_found == 1) {
+            MintermIntersect temp = intersect_vector[idx];
+            found_terms.insert(found_terms.end(), temp.minterm_reference.terms.begin(), temp.minterm_reference.terms.end());
+            essential_pi.push_back(temp.minterm_reference.binary);
+            history.erase(std::remove_if(history.begin(), history.end(), [&](const BinaryMinterm& term) {
+                return term.binary == temp.minterm_reference.binary;
+            }), history.end());
+        }
     }
-
-    StringUtil::rm_string_dup(essential_pi);
+    VectorUtil::rm_vector(minterms, found_terms);
 }
 
-std::vector<int> Solution::find_prime_terms(std::vector<int> history_terms) {
-    std::vector<int> prime_terms;
+bool Solution::row_dominance(std::vector<BinaryMinterm>& history, std::vector<int>& minterms) {
+    bool success = false;
 
-    for(int i = 0; i < history_terms.size(); i++) {
-        int count = 0;
+    for(auto it = history.begin(); it != history.end(); ) {
+        bool erased = false;
+        std::vector<int> outer_common = VectorUtil::intersection(it->terms, minterms);
 
-        for(int j = 0; j < history_terms.size(); j++) {
-            if(history_terms[i] == history_terms[j]) {
-                count++;
+        for(auto& term : history) {
+            if(it->binary == term.binary) continue;
+
+            std::vector<int> inner_common = VectorUtil::intersection(term.terms, minterms);
+            int common_between = VectorUtil::common_terms(outer_common, inner_common);
+            bool dash_check = (it->dash_count < term.dash_count);
+            bool cost_check = (it->cost >= term.cost);
+
+            bool edge_check = (outer_common.size() == inner_common.size() && common_between == outer_common.size() && dash_check);
+            if((outer_common.size() < inner_common.size() && common_between == outer_common.size() && cost_check) || edge_check) {
+                it = history.erase(it);
+                erased = true;
+                success = true;
+                break;
             }
         }
-
-        if(count == 1) {
-            prime_terms.push_back(history_terms[i]);
+        if(!erased) {
+            it++;
         }
     }
-
-    return prime_terms;
+    return success;
 }
 
-std::vector<int> Solution::find_history_terms(std::vector<BinaryMinterm>& history, std::vector<int>& found_terms) {
-    std::vector<int> history_terms;
-
-    for(const auto& item : history) {
-        history_terms.insert(history_terms.end(), item.terms.begin(), item.terms.end());
-    }
-
-    VectorUtil::rm_vector(history_terms, found_terms);
-
-    return history_terms;
-}
-
-void Solution::process_prime_terms(
-    std::vector<BinaryMinterm>& history,
-    std::vector<int>& prime_terms,
-    std::unordered_set<std::string>& found_binary,
-    std::vector<int>& minterms,
-    std::vector<int>& found_terms,
-    std::vector<int>& history_terms
-) {
-    for(const auto& item : history) {
-        if(VectorUtil::common_terms(item.terms, prime_terms)) {
-            essential_pi.push_back(item.binary);
-            found_binary.insert(item.binary);
-            found_terms.insert(found_terms.end(), item.terms.begin(), item.terms.end());
-            VectorUtil::rm_vector(minterms, item.terms);
-        }
-
-        if(prime_terms.empty()) {
-            break;
-        }
-    }
-    VectorUtil::rm_vector(history_terms, found_terms);
-}
-
-void Solution::process_non_prime_terms(
-    std::vector<BinaryMinterm>& history,
-    std::vector<int>& history_terms,
-    std::vector<int>& minterms,
-    std::unordered_set<std::string>& found_binary
-) {
-    while(!history_terms.empty()) {
-        int max_terms = VectorUtil::max_common_terms(history_terms, history);
-
-        for(auto item : history) {
-            if(VectorUtil::common_terms(item.terms, history_terms) != max_terms) {
-                continue;
-            }
-            std::vector<BinaryMinterm> temp_v = gather_matching_terms(item, history, max_terms, found_binary);
-            max_terms = VectorUtil::max_common_terms(history_terms, history);
-
-            std::vector<std::string> non_essential = extract_binary(temp_v, found_binary, minterms);
-
-            if(non_essential.size() == 1) {
-                essential_pi.push_back(non_essential[0]);
+void Solution::populate_non_essential(std::vector<BinaryMinterm>& history, std::vector<int>& minterms) {
+    for(int i : minterms) {
+        std::vector<std::string> n_essential;
+        for(auto it = history.begin(); it != history.end(); ) {
+            if(std::find(it->terms.begin(), it->terms.end(), i) != it->terms.end()) {
+                n_essential.push_back(it->binary);
+                it = history.erase(it);
             }
             else {
-                non_essential_pi.push_back(non_essential);;
-            }
-
-            VectorUtil::rm_vector(history_terms, item.terms);
-        }
-    }
-}
-
-std::vector<BinaryMinterm> Solution::gather_matching_terms(
-    BinaryMinterm& item,
-    std::vector<BinaryMinterm>& history,
-    int max_terms,
-    std::unordered_set<std::string>& found_binary
-) {
-    std::vector<BinaryMinterm> temp_v;
-    temp_v.push_back(item);
-
-    for(auto item_2 : history) {
-        if(VectorUtil::common_terms(item_2.terms, item.terms) == max_terms && item_2.binary != item.binary) {
-            if(found_binary.find(item_2.binary) == found_binary.end()) {
-                temp_v.push_back(item_2);
+                it++;
             }
         }
+        non_essential_pi.push_back(n_essential);
     }
-
-    return temp_v;
 }
 
-std::vector<std::string> Solution::extract_binary(
-    std::vector<BinaryMinterm>& temp_v,
-    std::unordered_set<std::string>& found_binary,
-    std::vector<int>& minterms
-) {
-    std::vector<std::string> non_essential;
-    for(BinaryMinterm& term : temp_v) {
-        non_essential.push_back(term.binary);
-        found_binary.insert(term.binary);
-        VectorUtil::rm_vector(minterms, term.terms);
-    }
-    return non_essential;
-}
-
-Solution::Solution(MinimizedTerms& history, MintermCollection& minterms) {
-    simplify(history, minterms);
+void Solution::print() {
+    SolutionLog::solution_log(essential_pi, non_essential_pi);
 }

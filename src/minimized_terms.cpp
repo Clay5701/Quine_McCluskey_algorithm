@@ -1,6 +1,9 @@
+#include <iostream>
 #include <algorithm>
+#include <unordered_set>
 #include "../include/minimized_terms.h"
 #include "../include/minterm_collection.h"
+#include "../include/util.h"
 
 std::vector<BinaryMinterm> MinimizedTerms::combine_minterms(const std::vector<BinaryMinterm>& minterms) {
     std::vector<BinaryMinterm> combined;
@@ -36,52 +39,70 @@ std::vector<BinaryMinterm> MinimizedTerms::combine_minterms(const std::vector<Bi
         }
     }
 
+    if(!combined.empty()) {
+        MintermCollection::calculate_cost(combined, static_cast<int>(combined[0].binary.size()));
+    }
+
     return combined;
 }
 
-std::vector<std::vector<BinaryMinterm>*> MinimizedTerms::calculate_minimized(std::vector<BinaryMinterm> minterms) {
-    std::vector<BinaryMinterm>* new_minterms = new std::vector<BinaryMinterm>{combine_minterms(minterms)};
-    std::vector<std::vector<BinaryMinterm>*> history;
+void MinimizedTerms::calculate_minimized(std::vector<BinaryMinterm> minterms) {
+    std::vector<BinaryMinterm> new_minterms = std::vector<BinaryMinterm>{combine_minterms(minterms)};
+    std::vector<std::vector<BinaryMinterm>> expanded_history;
+    expanded_history.push_back(minterms);
 
-    while(!new_minterms->empty()) {
-        MintermCollection::print_minterms(*new_minterms);
+    while(!new_minterms.empty()) {
+        MintermCollection::print_minterms(new_minterms);
 
-        history.push_back(new_minterms);
-        std::vector<BinaryMinterm>* next_minterms = new std::vector<BinaryMinterm>{combine_minterms(*new_minterms)};
-
-        new_minterms = next_minterms;
+        expanded_history.push_back(new_minterms);
+        new_minterms = std::vector<BinaryMinterm>{combine_minterms(new_minterms)};
     }
 
-    rm_history_dup(history);
-    std::reverse(history.begin(), history.end());
+    rm_history_dup(expanded_history);
+    std::reverse(expanded_history.begin(), expanded_history.end());
+    rm_history_redundancies(expanded_history);
 
-    return history;
+    for(const auto& v : expanded_history) {
+        history.insert(history.end(), v.begin(), v.end());
+    }
 }
 
-void MinimizedTerms::rm_history_dup(std::vector<std::vector<BinaryMinterm>*>& history) {
-    for(auto* v : history) {
-        std::sort(v->begin(), v->end(), [](const BinaryMinterm& a, const BinaryMinterm& b) {
+void MinimizedTerms::rm_history_dup(std::vector<std::vector<BinaryMinterm>>& expanded_history) {
+    for(auto& v : expanded_history) {
+        std::sort(v.begin(), v.end(), [](const BinaryMinterm& a, const BinaryMinterm& b) {
             return a.binary > b.binary;
         });
 
-        auto it = std::unique(v->begin(), v->end(), [](const BinaryMinterm& a, const BinaryMinterm& b){
+        auto it = std::unique(v.begin(), v.end(), [](const BinaryMinterm& a, const BinaryMinterm& b){
             return a.binary == b.binary;
         });
 
-        v->erase(it, v->end());
+        v.erase(it, v.end());
     }
 }
 
-std::vector<std::vector<BinaryMinterm>*> MinimizedTerms::get_history() {
+void MinimizedTerms::rm_history_redundancies(std::vector<std::vector<BinaryMinterm>>& expanded_history) {
+    std::unordered_set<int> used_terms;
+
+    for(auto& v : expanded_history) {
+        std::unordered_set<int> temp_used;
+        for(auto it = v.begin(); it != v.end(); ) {
+            if(VectorUtil::common_terms(it->terms, std::vector<int>(used_terms.begin(), used_terms.end())) >= it->terms.size()) {
+                it = v.erase(it);
+            }
+            else {
+                temp_used.insert(it->terms.begin(), it->terms.end());
+                it++;
+            }
+        }
+        used_terms.insert(temp_used.begin(), temp_used.end());
+    }
+}
+
+std::vector<BinaryMinterm> MinimizedTerms::get_history() {
     return history;
 }
 
 MinimizedTerms::MinimizedTerms(std::vector<BinaryMinterm> minterms) {
-    history = calculate_minimized(minterms);
-}
-
-MinimizedTerms::~MinimizedTerms() {
-    for(auto* it : history) {
-        delete it;
-    }
+   calculate_minimized(minterms);
 }

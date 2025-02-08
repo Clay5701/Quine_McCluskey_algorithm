@@ -64,6 +64,19 @@ int VectorUtil::common_terms(const std::vector<int>& v1, const std::vector<int>&
     return static_cast<int>(common.size());
 }
 
+std::vector<int> VectorUtil::intersection(const std::vector<int>& v1, const std::vector<int>& v2) {
+    std::set<int> s1(v1.begin(), v1.end());
+
+    std::vector<int> common;
+    for(const int& item : v2) {
+        if(s1.find(item) != s1.end()) {
+            common.push_back(item);
+        }
+    }
+
+    return common;
+}
+
 int VectorUtil::max_common_terms(const std::vector<int>& v1, const std::vector<BinaryMinterm>& v2) {
     int term_count = 0;
     for(auto item : v2) {
