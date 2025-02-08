@@ -26,5 +26,4 @@ struct BinaryMinterm {
     std::string binary;     ///< The binary representation of the minterm.
     int group;              ///< The QM group this minterm belongs to.
     int cost;
-    int dash_count;
 };

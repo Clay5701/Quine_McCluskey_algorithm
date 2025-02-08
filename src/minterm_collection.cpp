@@ -87,7 +87,6 @@ void MintermCollection::calculate_cost(std::vector<BinaryMinterm>& binary_minter
             if(ch == '-') dash_count++;
             if(ch == '0') zero_count++;
         }
-        term.dash_count = dash_count;
         term.cost = max_length + 1 + zero_count - dash_count;
     }
 }

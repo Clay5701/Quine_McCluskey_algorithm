@@ -71,11 +71,9 @@ bool Solution::row_dominance(std::vector<BinaryMinterm>& history, std::vector<in
 
             std::vector<int> inner_common = VectorUtil::intersection(term.terms, minterms);
             int common_between = VectorUtil::common_terms(outer_common, inner_common);
-            bool dash_check = (it->dash_count < term.dash_count);
             bool cost_check = (it->cost >= term.cost);
 
-            bool edge_check = (outer_common.size() == inner_common.size() && common_between == outer_common.size() && dash_check);
-            if((outer_common.size() < inner_common.size() && common_between == outer_common.size() && cost_check) || edge_check) {
+            if((outer_common.size() < inner_common.size() && common_between == outer_common.size() && cost_check)) {
                 it = history.erase(it);
                 erased = true;
                 success = true;
